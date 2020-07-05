@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>悦听player</title>
+  <!-- 样式 -->
+  <link rel="stylesheet" href="./css/index.css">
+</head>
+
+<body>
+  <div class="wrap">
+    <!-- 播放器主体区域 -->
+    <div class="play_wrap" id="player">
+      <div class="search_bar">
+        <img src="images/player_title.png" alt="" />
+        <!-- 搜索歌曲 -->
+        <input type="text" autocomplete="off" v-model="keywords" @keyup.enter="searchMusic" />
+      </div>
+      <div class="center_con">
+        <!-- 搜索歌曲列表 -->
+        <div class='song_wrapper'>
+          <ul class="song_list">
+           
+           <li v-for="song in songsList">
+			    <a href="javascript:;" @click="playSong(song.id)"></a>
+				<b>{{song.name}}</b> <!--歌曲名称-->
+				<span v-show="song.mvid!=0" @click="playMv(song.mvid)"><i></i></span></li><!--MV-->
+          </ul>
+          <img src="images/line.png" class="switch_btn" alt="">
+        </div>
+        <!-- 歌曲信息容器 -->
+        <div class="player_con" v-bind:class="{playing:isPlay}">
+          <img src="images/player_bar.png" class="play_bar" />
+          <!-- 黑胶碟片 -->
+          <img src="images/disc.png" class="disc autoRotate" />
+          <img :src="picUrl" class="cover autoRotate" />
+        </div>
+        <!-- 评论容器 -->
+        <div class="comment_wrapper">
+          <h5 class='title'>热门留言</h5>
+          <div class='comment_list'>
+            <dl v-for="comment in hotComents">
+              <dt><img :src="comment.user.avatarUrl" alt=""></dt>
+              <dd class="name" v-cloak>{{comment.user.nickname}}</dd>
+              <dd class="detail" v-cloak>
+                {{comment.content}}
+              </dd>
+            </dl>
+          </div>
+          <img src="images/line.png" class="right_line">
+        </div>
+      </div>
+      <div class="audio_con">
+        <audio ref='audio' @play="playDongHua" @pause="pauseDongHua" :src="songUrl" controls autoplay loop class="myaudio" ></audio>
+      </div>
+	  <!-- MV播放的dom -->
+      <div class="video_con"  style="display: none;" v-show="isShow">
+        <video  controls="controls" :src="mvUrl"></video>
+        <div class="mask" @click="hide"></div>
+      </div>
+    </div>
+  </div>
+  <!-- 开发环境版本，包含了有帮助的命令行警告 -->
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <!-- 官网提供的 axios 在线地址 -->
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  
+  
+  <script>
+	  /*
+	         1:歌曲搜索接口
+	           请求地址:https://autumnfish.cn/search
+	           请求方法:get
+	           请求参数:keywords(查询关键字)
+	           响应内容:歌曲搜索结果
+	       
+	         2:歌曲url获取播放接口
+	           请求地址:https://autumnfish.cn/song/url
+	           请求方法:get
+	           请求参数:id(歌曲id)
+	           响应内容:歌曲url地址
+	         3.歌曲详情获取 
+	           请求地址:https://autumnfish.cn/song/detail
+	          请求方法:get
+	           请求参数:ids(歌曲id)
+	           响应内容:歌曲详情(包括封面信息)
+	         4.热门评论获取
+	           请求地址:https://autumnfish.cn/comment/hot?type=0
+	           请求方法:get
+	           请求参数:id(歌曲id,地址中的type固定为0)
+	           响应内容:歌曲的热门评论
+	         5.mv地址获取
+	           请求地址:https://autumnfish.cn/mv/url
+	           请求方法:get
+	           请求参数:id(mvid,为0表示没有mv)
+	           响应内容:mv的地址
+	       */
+	  var vm = new Vue({
+		  el:"#player",
+		  data:{
+			  keywords:"",
+			  songsList:[],
+			  songUrl:"",
+			  picUrl:"",
+			  hotComents:[],
+			  isPlay:false,
+			  mvUrl:"",
+			  isShow:false
+			  
+		  },
+		  //vue实例创建并初始化完成之后，调用这个生命周期函数 页面加载完成后做的事
+		  created() {
+			//默认加载一个播放列表  
+		  	var that = this;
+		  	axios.get("https://autumnfish.cn/search?keywords=周杰伦")
+		  	  .then(
+		  	  function(response){
+		  		 console.log(response.data.result.songs); 
+		  		that.songsList = response.data.result.songs;
+		  	  },
+		  	  function(err){
+		  		  
+		  	  });
+		  },
+		  methods:{
+			  //根据搜索关键词获取歌曲列表
+			  searchMusic(){
+				  var that = this;
+				axios.get("https://autumnfish.cn/search?keywords=" + that.keywords)
+				  .then(
+				  function(response){
+					 console.log(response); 
+					that.songsList = response.data.result.songs;
+				  },
+				  function(err){
+					  
+				  });
+			  },
+			  //播放音乐，本质就是给audio的src属性赋值
+			  playSong(id){
+				  var that = this;
+				  axios.get("https://autumnfish.cn/song/url?id=" + id)
+				    .then(
+				    function(response){
+				  	console.log(response);
+					that.songUrl = response.data.data[0].url
+					
+				  	 
+				    },
+				    function(err){
+				  	  
+				    }
+					);
+					//获取封面信息
+					axios.get("https://autumnfish.cn/song/detail?ids=" + id)
+					  .then(
+					  function(response){
+						console.log(response);
+						that.picUrl = response.data.songs[0].al.picUrl;				
+										
+						 
+					  },
+					  function(err){
+						  
+					  });
+					//获取热门评论信息
+					axios.get("https://autumnfish.cn/comment/hot?type=0&id="+id)
+					  .then(
+					  function(response){
+						console.log(response.data.hotComments);
+						that.hotComents = response.data.hotComments;
+					  },
+					  function(err){
+						  
+					  });  
+					  
+			  },
+			  playDongHua(){
+				  this.isPlay = true;
+			  },
+			  pauseDongHua(){
+				  this.isPlay = false;
+			  },
+			  playMv(mvid){
+				  var that = this;
+				  axios.get("https://autumnfish.cn/mv/url?id="+mvid)
+				  .then(
+				  function(response){
+					  console.log(response);
+					  that.mvUrl = response.data.data.url;
+					  that.isShow = true;
+				  },
+				  function(arr){
+					  
+				  });
+			  },
+			  hide(){
+				  this.isShow = false;
+				  this.mvUrl="";
+			  }
+			  
+		  }
+		  
+	  });
+  </script>
+
+</body>
+
+</html>
